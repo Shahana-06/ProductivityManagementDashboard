@@ -4,10 +4,12 @@ from pydantic import BaseModel, EmailStr
 from datetime import datetime, timedelta
 from typing import Optional, List
 import jwt
+from jwt.exceptions import PyJWTError
 import bcrypt
 import sqlite3
 import logging
 from contextlib import contextmanager
+from datetime import timezone
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -88,6 +90,19 @@ class TaskCreate(BaseModel):
     deadline: Optional[datetime] = None
     tags: Optional[str] = None
 
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "title": "Finish GDG assignment",
+                "description": "Complete the FastAPI backend",
+                "priority": "High",
+                "status": "Pending",
+                "deadline": "2026-02-20T10:00:00Z",
+                "tags": "college,backend"
+            }
+        }
+    }
+
 class TaskUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
@@ -126,8 +141,9 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
         return user_id
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.JWTError:
+    except PyJWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
+
 
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
@@ -137,8 +153,9 @@ def verify_password(password: str, hashed: str) -> bool:
 
 def is_task_overdue(deadline: Optional[datetime], status: str) -> bool:
     if deadline and status != "Completed":
-        return datetime.now() > deadline
+        return datetime.now(timezone.utc) > deadline
     return False
+
 
 # API Endpoints
 
@@ -191,7 +208,7 @@ async def create_task(task: TaskCreate, user_id: int = Depends(verify_token)):
         c.execute("SELECT * FROM tasks WHERE id = ?", (task_id,))
         result = dict(c.fetchone())
         result['is_overdue'] = is_task_overdue(
-            datetime.fromisoformat(result['deadline']) if result['deadline'] else None,
+            datetime.fromisoformat(result['deadline'].replace(" ", "T")) if result['deadline'] else None,
             result['status']
         )
         logger.info(f"Task created: {task_id} by user {user_id}")
@@ -224,7 +241,7 @@ async def get_tasks(
         for row in c.fetchall():
             task = dict(row)
             task['is_overdue'] = is_task_overdue(
-                datetime.fromisoformat(task['deadline']) if task['deadline'] else None,
+                datetime.fromisoformat(task['deadline'].replace(" ", "T")) if task['deadline'] else None,
                 task['status']
             )
             tasks.append(task)
@@ -242,7 +259,7 @@ async def get_task(task_id: int, user_id: int = Depends(verify_token)):
         
         task = dict(result)
         task['is_overdue'] = is_task_overdue(
-            datetime.fromisoformat(task['deadline']) if task['deadline'] else None,
+            datetime.fromisoformat(task['deadline'].replace(" ", "T")) if task['deadline'] else None,
             task['status']
         )
         return task
@@ -270,7 +287,7 @@ async def update_task(task_id: int, task: TaskUpdate, user_id: int = Depends(ver
         c.execute("SELECT * FROM tasks WHERE id = ?", (task_id,))
         result = dict(c.fetchone())
         result['is_overdue'] = is_task_overdue(
-            datetime.fromisoformat(result['deadline']) if result['deadline'] else None,
+            datetime.fromisoformat(result['deadline'].replace(" ", "T")) if result['deadline'] else None,
             result['status']
         )
         return result

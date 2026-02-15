@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="Productivity Dashboard API")
 
 # Configuration
-SECRET_KEY = "your-secret-key-change-in-production"
+SECRET_KEY = "secret-key"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 

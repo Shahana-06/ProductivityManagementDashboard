@@ -1,3 +1,4 @@
+import uvicorn
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr
@@ -19,7 +20,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="Productivity Dashboard API")
 
 # Configuration
-SECRET_KEY = "secret-key"
+SECRET_KEY = "secret_key"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
@@ -340,7 +341,3 @@ async def get_dashboard_stats(user_id: int = Depends(verify_token)):
 @app.get("/")
 async def root():
     return {"message": "Productivity Dashboard API is running!"}
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
